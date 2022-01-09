@@ -9,15 +9,15 @@ from hashlib import md5
 -----------------------配置文件
 '''
 
-cjyuser = 'AMEN12138'  # 超级鹰账户 www.chaojiying.com
-cjypass = 'ljf147258..'  # 超级鹰密码 www.chaojiying.com
-id = '927456'  # 超级鹰软ID   用户中心>>软件ID 生成一个替换 96001
-serverid = '21747097'  # 服务器ID
-usercookie = 'session=f039fcecf59ac0631ef22bb793b58cfe18889fd8'  # 用户cookie，格式:session=
+cjyuser = ''  # 超级鹰账户 www.chaojiying.com
+cjypass = ''  # 超级鹰密码 www.chaojiying.com
+id = ''  # 超级鹰软ID   用户中心>>软件ID 生成一个替换 96001
+serverid = ''  # 服务器ID
+usercookie = ''  # 用户cookie，格式:session=
 v = '56' # 用户资料ID，用于查询服务器是否过期
-servername = 'ymfwq.mcserv.me'  # 请输入已有的服务器域名
+servername = ''  # 请输入已有的服务器域名
 yzmcw = 5  # 验证码错误次数,无限0
-tuisong = 'https://api.day.app/L2jvMvYBQCAPQHBdBBGZ9/server.pro签到/{}/?group=server.pro签到'
+tuisong = ''
 #BARK推送地址，推送消息用{}
 
 
