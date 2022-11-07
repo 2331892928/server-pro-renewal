@@ -4,21 +4,38 @@ import requests
 import time
 from PIL import Image
 from hashlib import md5
+import random
+import ddddocr
 
 '''
 -----------------------配置文件
 '''
 
-cjyuser = ''  # 超级鹰账户 www.chaojiying.com
-cjypass = ''  # 超级鹰密码 www.chaojiying.com
-id = ''  # 超级鹰软ID   用户中心>>软件ID 生成一个替换 96001
+# cjyuser = ''  # 超级鹰账户 www.chaojiying.com
+# cjypass = ''  # 超级鹰密码 www.chaojiying.com
+# id = ''  # 超级鹰软ID   用户中心>>软件ID 生成一个替换 96001
 serverid = ''  # 服务器ID
 usercookie = ''  # 用户cookie，格式:session=
-v = '56' # 用户资料ID，用于查询服务器是否过期
+v = '0'  # 用户资料ID，用于查询服务器是否过期，可不填，但填一定要准确，不懂得不要动
 servername = ''  # 请输入已有的服务器域名
-yzmcw = 5  # 验证码错误次数,无限0
+yzmcw = 0  # 验证码错误次数,无限0
+# yzmcd = 5  # 验证码长度，先自行签到查看验证码图片，数长度，填实际长度
 tuisong = ''
-#BARK推送地址，推送消息用{}
+
+
+# https://api.day.app/L2jvMvYBQCAPQHBdBBGZ9/server.pro签到/{}/?group=server.pro签到
+# BARK推送地址，推送消息用{}
+
+
+def ocr(self, imghref):
+    try:
+
+        with open(imghref, 'rb') as f:
+            img_bytes = f.read()
+        res = ocra.classification(img_bytes)
+    except:
+        res = None
+    return res
 
 
 def gb_tp(path):
@@ -34,7 +51,8 @@ def gb_tp(path):
             data = (img.getpixel((i, j)))  # 打印该图片的所有点
             # print(data)  # 打印每个像素点的颜色RGBA的值(r,g,b,alpha)
             # print(data[0])  # 打印RGBA的r值
-            if (data[0] >= 93 and data[1] >= 94 and data[2] >= 95):  # RGBA的r值大于170，并且g值大于170,并且b值大于170
+
+            if data[0] >= 93 and data[1] >= 94 and data[2] >= 95:  # RGBA的r值大于170，并且g值大于170,并且b值大于170
                 img.putpixel((i, j), (0, 0, 0, 255))  # 则这些像素点的颜色改成大红色
     img = img.convert("RGB")  # 把图片强制转成RGB
     img.save(path)  # 保存修改像素点后的图片
@@ -115,7 +133,8 @@ def sum_9_region_new(img, x, y):
 
 
 def tz(str):
-    requests.get(tuisong.format(str))
+    if tuisong != "":
+        requests.get(tuisong.format(str))
 
 
 class Chaojiying_Client(object):
@@ -167,47 +186,88 @@ class server_pro:
             "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36",
             "Cookie": usercookie
         }
+        self.v = 0
 
-    def get_yzm(self):  # 获取验证码，放入./yzm.jpg并识别验证码删除.yzm.jpg
-        time1 = int(time.time() * 1000)
-        image = requests.get("https://server.pro/api/captcha/get?" + str(time1), headers=self.h)
-        with open("./yzm.jpg", "wb") as f:
-            f.write(image.content)
-        gb_tp("./yzm.jpg")  # 提取验证码
-        im = open('./yzm.jpg', 'rb').read()  # 本地图片文件路径 来替换 a.jpg 有时WIN系统须要//
-        cjyjson = chaojiying.PostPic(im, 1902)
-        # cjyjson = {'err_no':0,'pic_str':"1",'pic_id':'1'}
-        os.remove('./yzm.jpg')
-        print(cjyjson)
-        if 'err_no' in cjyjson:
-            if cjyjson['err_no'] == 0:
-                return {
-                    'str': cjyjson['pic_str'],
-                    'id': cjyjson['pic_id']
-                }
+    def get_v(self):
+        if v != "0":
+            self.v = int(v)
+            return
+        while True:
+            print("寻找用户资料V中，当前V：" + str(self.v))
+            ym = requests.post("https://server.pro/api/meta/get", headers=self.h, data={
+                'v': self.v
+            })
+            if "reload" in ym.json() and ym.json()["reload"] == 1:
+                self.v = self.v + 1
+                # time.sleep(1)
+                continue
             else:
-                if cjyjson['err_no'] == -1005:
-                    return {
-                        'str': '接口错误',
-                        'id': '',
-                    }
-                else:
-                    return {
-                        'str': '验证码接口错误',
-                        'id': ''
-                    }
-        else:
-            return {
-                        'str': '验证码接口错误',
-                        'id': ''
-                    }
+                print("寻找用户资料V成功，当前V：" + str(self.v))
+                break
+
+
+    def get_yzm(self):  # 获取验证码，放入./yzm.jpg并识别验证码删除.yzm.jpg并识别返回字符串，兼容超级鹰逻辑
+        # dddocr逻辑
+        yzm = ""
+        dddocr = ddddocr.DdddOcr()
+        while len(yzm) != 6 and len(yzm) != 5:
+            # if yzm != "":
+                # print("ocr识别长度：" + str(len(yzm)))
+            time1 = int(time.time() * 1000)
+            image = requests.get("https://server.pro/api/captcha/get?" + str(time1), headers=self.h)
+            # 数据集
+            # with open("./server_pro/yzm" + str(random.getrandbits(128)) + ".jpg", "wb") as f:
+            #     f.write(image.content)
+            with open("./yzm.jpg", "wb") as f:
+                f.write(image.content)
+            # gb_tp("./yzm.jpg")  # 提取验证码
+            im = open('./yzm.jpg', 'rb').read()  # 本地图片文件路径 来替换 a.jpg 有时WIN系统须要//
+            yzm = dddocr.classification(im)
+        os.remove('./yzm.jpg')
+        return {
+            'str': yzm,
+            'id': 0
+        }
+
+        # dddocr逻辑
+
+        # 超级鹰逻辑
+
+        # gb_tp("./yzm.jpg")  # 提取验证码
+        # im = open('./yzm.jpg', 'rb').read()  # 本地图片文件路径
+        # cjyjson = chaojiying.PostPic(im, 1902)
+        # cjyjson = {'err_no':0,'pic_str':"1",'pic_id':'1'}
+        # os.remove('./yzm.jpg')
+        # print(cjyjson)
+        # if 'err_no' in cjyjson:
+        #     if cjyjson['err_no'] == 0:
+        #         return {
+        #             'str': cjyjson['pic_str'],
+        #             'id': cjyjson['pic_id']
+        #         }
+        #     else:
+        #         if cjyjson['err_no'] == -1005:
+        #             return {
+        #                 'str': '接口错误',
+        #                 'id': '',
+        #             }
+        #         else:
+        #             return {
+        #                 'str': '验证码接口错误',
+        #                 'id': ''
+        #             }
+        # else:
+        #     return {
+        #                 'str': '验证码接口错误',
+        #                 'id': ''
+        #             }
 
     def sign(self, yzm_str):  # 签到,1没钱，2验证码错误,3打码平台错误,0成功,4签到接口错误，可以重试
         if yzm_str == '接口错误':
             return 1
         if yzm_str == '验证码接口错误':
             return 3
-        if len(yzm_str) != 6:
+        if len(yzm_str) != 5 and len(yzm_str) != 6:
             return 2
         qd = requests.post("https://server.pro/api/server/renew", headers=self.h, data={
             'id': serverid,  # 服务器ID
@@ -244,8 +304,9 @@ class server_pro:
 
     def server_status(self):  # 检查服务器是否到期.1没到期，0到期
         ym = requests.post("https://server.pro/api/meta/get", headers=self.h, data={
-            'v': v
+            'v': self.v
         })
+
         if ym.json()['servers'][serverid]['state'] == 'running':
             return 1
         else:
@@ -254,31 +315,34 @@ class server_pro:
 
 # 按间距中的绿色按钮以运行脚本。
 if __name__ == '__main__':
-    chaojiying = Chaojiying_Client(cjyuser, cjypass, id)  # 用户中心>>软件ID 生成一个替换 96001
+    # chaojiying = Chaojiying_Client(cjyuser, cjypass, id)  # 用户中心>>软件ID 生成一个替换 96001
     server = server_pro()
+    server.get_v()
     cs = yzmcw
     sfgq = False
     if yzmcw <= 0:
         cs = 9999
-    for i in range(1, yzmcw):
-        if server.server_status() == 0:
-            sfgq = True
-            for j in range(1, yzmcw):
-                ymz = server.get_yzm()
-                if ymz['str'] == '接口错误':
-                    tz("验证码接口没钱，请及时充值")
-                    break
-                if ymz['str'] != '验证码接口错误':
-                    if server.server_qy(ymz['str']) == 0:
-                        print(chaojiying.ReportError(ymz['id']))
-                        continue  # 重试启动
-                    else:
-                        print("服务器已过期，已成功续费")
-                        tz("服务器已过期，已成功续费")
-                        break
-        if sfgq:
-            break
+    # for i in range(1, yzmcw):
+    #     if server.server_status() == 0:
+    #         sfgq = True
+    #         for j in range(1, yzmcw):
+    #             ymz = server.get_yzm()
+    #             if ymz['str'] == '接口错误':
+    #                 tz("验证码接口没钱，请及时充值")
+    #                 break
+    #             if ymz['str'] != '验证码接口错误':
+    #                 if server.server_qy(ymz['str']) == 0:
+    #                     print(chaojiying.ReportError(ymz['id']))
+    #                     continue  # 重试启动
+    #                 else:
+    #                     print("服务器已过期，已成功续费")
+    #                     tz("服务器已过期，已成功续费")
+    #                     break
+    #     if sfgq:
+    #         break
+    for i in range(0, cs):
         str1 = server.get_yzm()  # 获取验证码
+
         status = server.sign(str1['str'])
         if status == 1:
             tz("验证码接口没钱，请及时充值")
@@ -291,7 +355,7 @@ if __name__ == '__main__':
         if status == 2:  # 验证码错误
             tz("验证码错误")
             print("签到验证码错误")
-            chaojiying.ReportError(str1['id'])
+            # chaojiying.ReportError(str1['id'])
         if status == 4:  # 签到接口错误，有可能过期
             tz("签到接口错误，有可能过期，恢复中")
             print("签到接口错误，有可能过期，恢复中")
